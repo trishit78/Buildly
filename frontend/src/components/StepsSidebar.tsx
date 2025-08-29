@@ -1,11 +1,13 @@
 import React from 'react';
-import { Check, Clock, Play, Loader2 } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 
 interface Step {
   id: number;
   title: string;
   description: string;
-  completed: boolean;
+  completed?: boolean;
+  code?:string;
+  status?:string;
 }
 
 interface StepsSidebarProps {
@@ -21,20 +23,18 @@ const StepsSidebar: React.FC<StepsSidebarProps> = ({
   onStepChange, 
   isGenerating 
 }) => {
-  const getStepIcon = (step: Step, index: number) => {
-    if (step.completed) {
+//  console.log(steps)
+  const getStepIcon = (step: Step, _index: number) => {
+    //console.log(step.status)
+    if (step.status === "completed") {
       return <Check className="w-5 h-5 text-white" />;
-    } else if (isGenerating && index === 2) {
-      return <Loader2 className="w-5 h-5 text-white animate-spin" />;
-    } else if (index === currentStep) {
-      return <Play className="w-5 h-5 text-white" />;
-    } else {
+    }  else {
       return <Clock className="w-5 h-5 text-gray-400" />;
     }
   };
 
   const getStepStatus = (step: Step, index: number) => {
-    if (step.completed) return 'completed';
+    if (step.status === "completed") return 'completed';
     if (isGenerating && index === 2) return 'active';
     if (index === currentStep) return 'current';
     return 'pending';

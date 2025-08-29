@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import StepsSidebar from './StepsSidebar';
-import FileExplorer from './FileExplorer';
+//import FileExplorer from './FileExplorer';
+import { BACKEND_URL } from '../config';
+import axios from 'axios';
+import { FileItem, Step, StepType } from '../types';
+import { parseXml } from '../steps';
+import {FileExplorer}  from './FileExplorer';
 
 const GenerationPage: React.FC = () => {
   const location = useLocation();
@@ -10,30 +15,123 @@ const GenerationPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isGenerating, setIsGenerating] = useState(true);
 
+  const [steps,setSteps]= useState<Step[]>([]);
   const prompt = location.state?.prompt || '';
+const [files, setFiles] = useState<FileItem[]>([]);
+const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+
+type StepStatus = 'pending' | 'in-progress' | 'completed';
+useEffect(() => {
+    let originalFiles = [...files];
+    let updateHappened = false;
+
+    steps
+      .filter(({ status }) => status === 'pending')
+      .forEach((step) => {
+        updateHappened = true;
+        if (step?.type === StepType.CreateFile) {
+          let parsedPath = step.path?.split('/') ?? []; // ["src", "components", "App.tsx"]
+          let currentFileStructure = [...originalFiles]; // {}
+          let finalAnswerRef = currentFileStructure;
+
+          let currentFolder = '';
+          while (parsedPath.length) {
+            currentFolder = `${currentFolder}/${parsedPath[0]}`;
+            let currentFolderName = parsedPath[0];
+            parsedPath = parsedPath.slice(1);
+
+            if (!parsedPath.length) {
+              // final file
+              let file = currentFileStructure.find(
+                (x) => x.path === currentFolder
+              );
+              if (!file) {
+                currentFileStructure.push({
+                  name: currentFolderName,
+                  type: 'file',
+                  path: currentFolder,
+                  content: step.code,
+                });
+              } else {
+                file.content = step.code;
+              }
+            } else {
+              /// in a folder
+              let folder = currentFileStructure.find(
+                (x) => x.path === currentFolder
+              );
+              if (!folder) {
+                // create the folder
+                currentFileStructure.push({
+                  name: currentFolderName,
+                  type: 'folder',
+                  path: currentFolder,
+                  children: [],
+                });
+              }
+
+              currentFileStructure = currentFileStructure.find(
+                (x) => x.path === currentFolder
+              )!.children!;
+            }
+          }
+          originalFiles = finalAnswerRef;
+        }
+      });
+
+    if (updateHappened) {
+     // console.log(originalFiles)
+      setFiles(originalFiles);
+      setSteps((steps) =>
+        steps.map((s: Step) => {
+          return {
+            ...s,
+            status: 'completed' as StepStatus,
+          };
+        })
+      );
+    }
+  }, [steps]);
+
+
+
+async function init(): Promise<void> {
+  try {
+    // Step 1: Call templates endpoint
+    const templateResponse = await axios.post(`${BACKEND_URL}/templates`, {
+  prompt: prompt.trim()
+}, {
+  headers: { "Content-Type": "application/json" }
+});
+    
+    const {prompts,uiPrompts} = templateResponse.data;
+    setSteps(parseXml(uiPrompts[0]));
+
+    //console.log(steps)
+    // Step 2: Call chat endpoint with proper body
+    // const chatResponse = await axios.post(`${BACKEND_URL}/chat`, {
+    //   messages: prompts
+    // });
+    // console.log("Chat response:", chatResponse.data);
+  
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error("API Error:", error.response?.data || error.message);
+    } else if (error instanceof Error) {
+      console.error("Unexpected Error:", error.message);
+    } else {
+      console.error("Unknown Error:", error);
+    }
+  }
+}
+
 
   useEffect(() => {
-    if (!prompt) {
-      navigate('/');
-      return;
-    }
+    
+    init();
+  }, [])
+  //console.log(files)
 
-    // Simulate generation process
-    const timer = setTimeout(() => {
-      setIsGenerating(false);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [prompt, navigate]);
-
-  const steps = [
-    { id: 1, title: 'Analyzing Requirements', description: 'Understanding your website needs', completed: true },
-    { id: 2, title: 'Planning Architecture', description: 'Designing the structure and layout', completed: true },
-    { id: 3, title: 'Generating Components', description: 'Creating React components', completed: isGenerating ? false : true },
-    { id: 4, title: 'Styling & Design', description: 'Applying CSS and animations', completed: false },
-    { id: 5, title: 'Building Pages', description: 'Assembling the final website', completed: false },
-    { id: 6, title: 'Final Optimizations', description: 'Performance and accessibility checks', completed: false }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -72,13 +170,14 @@ const GenerationPage: React.FC = () => {
 
       {/* Main content */}
       <div className="flex-1 flex h-screen">
-        <StepsSidebar 
-          steps={steps} 
-          currentStep={currentStep} 
-          onStepChange={setCurrentStep}
-          isGenerating={isGenerating}
-        />
-        <FileExplorer isGenerating={isGenerating} />
+        <StepsSidebar
+                  steps={steps}
+                  currentStep={currentStep}
+                  onStepChange={setCurrentStep}
+                  isGenerating={isGenerating}
+                />
+      
+        <FileExplorer files={files} onFileSelect={setSelectedFile}   />
       </div>
     </div>
   );

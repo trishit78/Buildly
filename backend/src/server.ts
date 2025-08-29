@@ -8,11 +8,13 @@ import { attachCorrelationIdMiddleware } from './middlewares/correlation.middlew
 import templateRouter from './routers/v1/index.router';
 import chatRouter from './routers/v1/chat.router';
 
-
+import cors from 'cors';
+import bodyParser from 'body-parser';
 
 const app = express();
 app.use(express.json());
-
+app.use(cors());
+app.use(bodyParser.json());
 /**
  * Registering all the routers and their corresponding routes with out app server object.
  */
