@@ -5,11 +5,12 @@ import v2Router from './routers/v2/index.router';
 import { appErrorHandler, genericErrorHandler } from './middlewares/error.middleware';
 import logger from './config/logger.config';
 import { attachCorrelationIdMiddleware } from './middlewares/correlation.middleware';
-
 import templateRouter from './routers/v1/index.router';
+import chatRouter from './routers/v1/chat.router';
+
+
 
 const app = express();
-
 app.use(express.json());
 
 /**
@@ -30,7 +31,7 @@ app.use(genericErrorHandler);
 
 
 app.use('/templates',templateRouter);
-
+app.use('/chat',chatRouter);
 
 // app.get("/test-gemini", async (req, res) => {
 //   try {
