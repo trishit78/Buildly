@@ -110,7 +110,7 @@ export function FileExplorer({ files, onFileSelect }: FileExplorerProps) {
   });
 
   return (
-    <div className="h-full overflow-auto py-2">
+    <div className="h-full overflow-auto py-2 ">
       <div className="space-y-0.5">
         {sortedFiles.map((file, index) => (
           <FileNode

@@ -8,6 +8,7 @@ import axios from 'axios';
 import { FileItem, Step, StepType } from '../types';
 import { parseXml } from '../steps';
 import {FileExplorer}  from './FileExplorer';
+import CodeEditor from './CodeEditor';
 
 const GenerationPage: React.FC = () => {
   const location = useLocation();
@@ -99,43 +100,70 @@ async function init(): Promise<void> {
   try {
     // Step 1: Call templates endpoint
     const templateResponse = await axios.post(`${BACKEND_URL}/templates`, {
-  prompt: prompt.trim()
-}, {
-  headers: { "Content-Type": "application/json" }
-});
+      prompt: prompt.trim()
+    }, {
+      headers: { "Content-Type": "application/json" }
+    });
     
-    const {prompts,uiPrompts} = templateResponse.data;
+    const {prompts, uiPrompts} = templateResponse.data;
     setSteps(parseXml(uiPrompts[0]));
 
-    //console.log(steps)
-    // Step 2: Call chat endpoint with proper body
-    // const chatResponse = await axios.post(`${BACKEND_URL}/chat`, {
-    //   messages: prompts
-    // });
-    // console.log("Chat response:", chatResponse.data);
+    const chatResponse = await axios.post(`${BACKEND_URL}/chat`, {
+      message: prompts  
+    }, {
+      headers: { "Content-Type": "application/json" }
+    });
+    
+    console.log("Chat response:", chatResponse.data);
+    
+  
+    setIsGenerating(false);
   
   } catch (error: unknown) {
+    console.error("Error during initialization:");
     if (axios.isAxiosError(error)) {
       console.error("API Error:", error.response?.data || error.message);
+      console.error("Status:", error.response?.status);
+      console.error("URL:", error.config?.url);
     } else if (error instanceof Error) {
       console.error("Unexpected Error:", error.message);
     } else {
       console.error("Unknown Error:", error);
     }
+    setIsGenerating(false);
   }
 }
 
 
   useEffect(() => {
-    
     init();
   }, [])
   //console.log(files)
 
+  
+const handleCodeChange = (value: string | undefined) => {
+  if (!selectedFile) return;
+
+  setFiles((prevFiles) => {
+    const updateFileContent = (items: FileItem[]): FileItem[] =>
+      items.map((item) => {
+        if (item.path === selectedFile.path) {
+          return { ...item, content: value || "" };
+        }
+        if (item.children) {
+          return { ...item, children: updateFileContent(item.children) };
+        }
+        return item;
+      });
+
+    return updateFileContent(prevFiles);
+  });
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -170,15 +198,27 @@ async function init(): Promise<void> {
 
       {/* Main content */}
       <div className="flex-1 flex h-screen">
-        <StepsSidebar
-                  steps={steps}
-                  currentStep={currentStep}
-                  onStepChange={setCurrentStep}
-                  isGenerating={isGenerating}
-                />
-      
-        <FileExplorer files={files} onFileSelect={setSelectedFile}   />
-      </div>
+  <StepsSidebar
+    steps={steps}
+    currentStep={currentStep}
+    onStepChange={setCurrentStep}
+    isGenerating={isGenerating}
+  />
+  
+  {/* Sidebar width fixed */}
+  <div className="w-64 border-r border-gray-200">
+    <FileExplorer files={files} onFileSelect={setSelectedFile} />
+  </div>
+
+  {/* Editor takes remaining space */}
+  <div className="flex-1">
+    <CodeEditor 
+      selectedFile={selectedFile} 
+      onChange={handleCodeChange}
+    />
+  </div>
+</div>
+
     </div>
   );
 };
