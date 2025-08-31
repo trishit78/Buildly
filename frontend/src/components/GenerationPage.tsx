@@ -9,19 +9,28 @@ import { FileItem, Step, StepType } from '../types';
 import { parseXml } from '../steps';
 import {FileExplorer}  from './FileExplorer';
 import CodeEditor from './CodeEditor';
+import { useWebContainer } from '../hooks/useWebContainer';
+import { PreviewFrame } from './PreviewFrame';
+import { WebContainer } from '@webcontainer/api';
+
 
 const GenerationPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [isGenerating, setIsGenerating] = useState(true);
-
+ const webcontainer = useWebContainer();
   const [steps,setSteps]= useState<Step[]>([]);
   const prompt = location.state?.prompt || '';
 const [files, setFiles] = useState<FileItem[]>([]);
 const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+const [viewMode, setViewMode] = useState<'code' | 'preview'>('code');
 
 type StepStatus = 'pending' | 'in-progress' | 'completed';
+
+
+
+
 useEffect(() => {
     let originalFiles = [...files];
     let updateHappened = false;
@@ -95,6 +104,52 @@ useEffect(() => {
   }, [steps]);
 
 
+  useEffect(() => {
+    const createMountStructure = (files: FileItem[]): Record<string, any> => {
+      const mountStructure: Record<string, any> = {};
+  
+      const processFile = (file: FileItem, isRootFolder: boolean) => {  
+        if (file.type === 'folder') {
+          // For folders, create a directory entry
+          mountStructure[file.name] = {
+            directory: file.children ? 
+              Object.fromEntries(
+                file.children.map(child => [child.name, processFile(child, false)])
+              ) 
+              : {}
+          };
+        } else if (file.type === 'file') {
+          if (isRootFolder) {
+            mountStructure[file.name] = {
+              file: {
+                contents: file.content || ''
+              }
+            };
+          } else {
+            // For files, create a file entry with contents
+            return {
+              file: {
+                contents: file.content || ''
+              }
+            };
+          }
+        }
+  
+        return mountStructure[file.name];
+      };
+  
+      // Process each top-level file/folder
+      files.forEach(file => processFile(file, true));
+  
+      return mountStructure;
+    };
+  
+    const mountStructure = createMountStructure(files);
+  
+    // Mount the structure if WebContainer is available
+   // console.log(mountStructure);
+    webcontainer?.mount(mountStructure);
+  }, [files, webcontainer]);
 
 async function init(): Promise<void> {
   try {
@@ -122,7 +177,7 @@ async function init(): Promise<void> {
         setSteps((prev)=>[...prev,...newSteps])
       }
 
-    console.log("Chat response:", stepsResponse.data);
+  //  console.log("Chat response:", stepsResponse.data);
     
   
     setIsGenerating(false);
@@ -196,13 +251,32 @@ const handleCodeChange = (value: string | undefined) => {
 
       {/* Prompt display */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-6">
-        <div className="max-w-4xl">
-          <h2 className="text-sm font-medium text-gray-600 mb-2">Building website for:</h2>
-          <p className="text-lg text-gray-900 bg-white/60 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-200">
-            {prompt}
-          </p>
-        </div>
-      </div>
+  <div className="max-w-4xl">
+    <h2 className="text-sm font-medium text-gray-600 mb-2">
+      Building website for:
+    </h2>
+    <div className="flex items-center justify-between">
+      <p className="text-lg text-gray-900 bg-white/60 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-200">
+        {prompt}
+      </p>
+     
+<div className="flex space-x-2">
+  <button 
+    className={`px-4 py-2 rounded-lg ${viewMode === 'code' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`} 
+    onClick={() => setViewMode('code')}
+  >
+    Code
+  </button>
+  <button 
+    className={`px-4 py-2 rounded-lg ${viewMode === 'preview' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`} 
+    onClick={() => setViewMode('preview')}
+  >
+    Preview
+  </button>
+</div>
+    </div>
+  </div>
+</div>
 
       {/* Main content */}
       <div className="flex-1 flex h-screen">
@@ -220,11 +294,19 @@ const handleCodeChange = (value: string | undefined) => {
 
   {/* Editor takes remaining space */}
   <div className="flex-1">
+  {viewMode === 'code' ? (
     <CodeEditor 
       selectedFile={selectedFile} 
       onChange={handleCodeChange}
     />
-  </div>
+  ) : (
+    <PreviewFrame
+      webContainer={webcontainer as WebContainer}
+      files={files}
+    />
+  )}
+</div>
+
 </div>
 
     </div>
