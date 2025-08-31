@@ -108,13 +108,21 @@ async function init(): Promise<void> {
     const {prompts, uiPrompts} = templateResponse.data;
     setSteps(parseXml(uiPrompts[0]));
 
-    const chatResponse = await axios.post(`${BACKEND_URL}/chat`, {
+    const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
       message: prompts  
     }, {
       headers: { "Content-Type": "application/json" }
     });
-    
-    console.log("Chat response:", chatResponse.data);
+     const newSteps = parseXml(stepsResponse.data.response).map((x: any) => ({
+        ...x,
+        status: 'pending' as StepStatus,
+      }));
+
+      if(newSteps.length>0){
+        setSteps((prev)=>[...prev,...newSteps])
+      }
+
+    console.log("Chat response:", stepsResponse.data);
     
   
     setIsGenerating(false);
@@ -140,7 +148,7 @@ async function init(): Promise<void> {
   }, [])
   //console.log(files)
 
-  
+
 const handleCodeChange = (value: string | undefined) => {
   if (!selectedFile) return;
 
