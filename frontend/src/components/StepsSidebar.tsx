@@ -51,7 +51,7 @@ const StepsSidebar: React.FC<StepsSidebarProps> = ({
             
             return (
               <div
-                key={step.id}
+                key={index}
                 className={`relative flex items-start space-x-4 p-4 rounded-xl cursor-pointer transition-all duration-200 ${
                   status === 'completed' 
                     ? 'bg-green-50 border border-green-200 hover:bg-green-100' 

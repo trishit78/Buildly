@@ -18,7 +18,7 @@ export interface TemplateResponse {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function callGemini(messages: AIMessage[], maxTokens: number): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
   const chat = model.startChat({
     history: messages.slice(0, -1).map((msg) => ({
@@ -39,7 +39,6 @@ templateRouter.post("/", async (req:Request, res:Response):Promise<any> => {
     
     const messages: AIMessage[] = [
         { role: 'user', content: "Return either node or react based on what do you think this project should be. Only return a single word either 'node' or 'react'. Do not return anything extra\n\n" + prompt    
-
         },
 
     ];
